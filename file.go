@@ -10,7 +10,31 @@ import (
 	"sync/atomic"
 )
 
-func DownloadFile(id int, url string) error {
+func DownloadFile(id int, url, fileType string) error {
+	var err error
+
+	subfolder := ""
+	for a, b := range strconv.Itoa(id) {
+		if a > 3 {
+			subfolder += "0"
+		} else {
+			subfolder += string(b)
+		}
+	}
+
+	folder := filepath.Join(arguments.Output, subfolder+"/"+strconv.Itoa(id))
+
+	err = os.MkdirAll(folder, 0755)
+	if err != nil {
+		return nil
+	}
+
+	fileName := filepath.Join(folder, fileType+"_"+filepath.Base(url))
+
+	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
+		logrus.Debugf("Skipping File " + fileName)
+		return nil
+	}
 
 	code, body, err := fasthttp.Get([]byte{}, url)
 	if err != nil {
@@ -19,20 +43,6 @@ func DownloadFile(id int, url string) error {
 
 	if code != 200 {
 		return fmt.Errorf("HTTP status %d", code)
-	}
-
-	folder := filepath.Join(arguments.Output, strconv.Itoa(id))
-
-	err = os.MkdirAll(folder, 0755)
-	if err != nil {
-		return nil
-	}
-
-	fileName := filepath.Join(folder, filepath.Base(url))
-
-	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
-		logrus.Infof("Skipping File " + fileName)
-		return nil
 	}
 
 	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0666)

@@ -1,15 +1,13 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"github.com/PuerkitoBio/goquery"
+	"github.com/cenkalti/backoff"
+	"github.com/fionera/e621Crawler/api"
 	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
 	"os"
 	"os/signal"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -20,7 +18,7 @@ var totalBytes int64
 var numDownloaded int64
 var exitRequested int32
 var worker sync.WaitGroup
-var jobs chan int
+var jobs chan api.Post
 var currentPost int
 
 func main() {
@@ -38,7 +36,7 @@ func main() {
 
 	_, cancel := context.WithCancel(context.Background())
 
-	jobs = make(chan int, arguments.Concurrency)
+	jobs = make(chan api.Post, arguments.Concurrency)
 	go listenCtrlC(cancel)
 	go stats()
 
@@ -47,35 +45,42 @@ func main() {
 		go crawler()
 	}
 
-	_, body, err := fasthttp.Get([]byte{}, "https://e621.net/post/index")
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	logrus.Debugf("Visited Index")
-
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
-	if err != nil {
-		logrus.Fatal(err)
-	}
-
-	var newestId int
-	imageMeta := doc.Find("#post-list > div.content-post > div > .thumb:nth-child(1)")
-	if postId, exists := imageMeta.Attr("id"); exists {
-		postId = postId[1:]
-		parsed, _ := strconv.ParseInt(postId, 10, 64)
-		logrus.Debugf("Found Newest Image | Post: %d", parsed)
-
-		newestId = int(parsed)
-	}
-
-	for currentPost = arguments.StartId; currentPost <= newestId; currentPost++ {
+	currentPost = arguments.StartId
+	for {
 		if atomic.LoadInt32(&exitRequested) == 1 {
 			break
 		}
 
-		jobs <- currentPost
-		logrus.Debugf("Scheduled Id: %d", currentPost)
+		var posts api.Posts
+		err := backoff.Retry(func() error {
+			logrus.Infof("Requesting next page before id: %d", currentPost)
+			posts, err = api.List(320, currentPost, 0, "", false)
+			if err != nil {
+				logrus.WithError(err).
+					Errorf("Failed crawling")
+			}
+
+			return err
+		}, backoff.NewExponentialBackOff())
+
+		if err != nil {
+			logrus.Error(err)
+		}
+
+		for _, post := range posts {
+			if atomic.LoadInt32(&exitRequested) == 1 {
+				break
+			}
+
+			if currentPost == 0 || post.ID < currentPost {
+				currentPost = post.ID
+			} else if currentPost == post.ID {
+				break
+			}
+
+			jobs <- post
+			logrus.Debugf("Scheduled Id: %d", currentPost)
+		}
 	}
 
 	close(jobs)
@@ -108,5 +113,15 @@ func stats() {
 			"total_bytes":  totalBytes,
 			"avg_rate":     fmt.Sprintf("%.0f", float64(total)/dur),
 		}).Info("Stats")
+	}
+}
+
+func crawler() {
+	defer worker.Done()
+
+	for job := range jobs {
+		if atomic.LoadInt32(&exitRequested) == 0 {
+			ProcessPost(job)
+		}
 	}
 }

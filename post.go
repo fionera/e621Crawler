@@ -1,69 +1,33 @@
 package main
 
 import (
-	"bytes"
-	"fmt"
-	"github.com/PuerkitoBio/goquery"
-	"github.com/pkg/errors"
+	"github.com/fionera/e621Crawler/api"
 	"github.com/sirupsen/logrus"
-	"github.com/valyala/fasthttp"
-	"strconv"
 )
 
-func CrawlPost(id int) error {
-	code, body, err := fasthttp.Get([]byte{}, "https://e621.net/post/show/"+strconv.Itoa(id))
-	if err != nil {
-		return err
+func ProcessPost(post api.Post) {
+	logrus.Debugf("Processing Post | %d", post.ID)
+
+	if post.FileURL != "" {
+		logrus.Debugf("Found File | Post: %d - %s", post.ID, post.FileURL)
+		startDownload(post.ID, post.FileURL, "file")
 	}
 
-	switch code {
-	case 200:
-		break
-	case 404:
-		return nil
-	case 503:
-		return errors.New("503 Bad Gateway")
-	default:
-		return errors.New(fmt.Sprintf("Unknown StatusCode - %d", code))
+	if post.PreviewURL != "" {
+		logrus.Debugf("Found Preview | Post: %d - %s", post.ID, post.PreviewURL)
+		startDownload(post.ID, post.PreviewURL, "preview")
+
 	}
 
-	logrus.Infof("Found Post | %d", id)
+	if post.SampleURL != "" {
+		logrus.Debugf("Found Sample | Post: %d - %s", post.ID, post.SampleURL)
+		startDownload(post.ID, post.SampleURL, "sample")
 
-	// Load the HTML document
-	doc, err := goquery.NewDocumentFromReader(bytes.NewReader(body))
-	if err != nil {
-		logrus.Error(err)
-		return err
 	}
-
-	foundVideo := false
-	foundImage := false
-
-	videoMeta := doc.Find("meta[property=\"og:video\"]")
-	if url, exists := videoMeta.Attr("content"); exists {
-		foundVideo = true
-		logrus.Debugf("Found Video | Post: %d - %s", id, url)
-		go startDownload(id, url)
-	}
-
-	highRes := doc.Find("#highres")
-	if url, exists := highRes.Attr("href"); exists && !foundVideo {
-		foundImage = true
-		logrus.Debugf("Found High Resolution | Post: %d - %s", id, url)
-		go startDownload(id, url)
-	}
-
-	imageMeta := doc.Find("meta[property=\"og:image\"]")
-	if url, exists := imageMeta.Attr("content"); exists && !foundImage {
-		logrus.Debugf("Found Thumbnail | Post: %d - %s", id, url)
-		go startDownload(id, url)
-	}
-
-	return err
 }
 
-func startDownload(id int, url string) {
-	err := DownloadFile(id, url)
+func startDownload(id int, url, fileType string) {
+	err := DownloadFile(id, url, fileType)
 	if err != nil {
 		logrus.Error(err)
 	}
