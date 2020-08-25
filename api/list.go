@@ -73,7 +73,8 @@ func List(limit int, beforeId int, page int, tags string, typedTags bool) (Posts
 	if typedTags != false {
 		queryParams["typed_tags"] = strconv.FormatBool(typedTags)
 	}
-	resp, err := resty.R().
+	client := resty.New()
+	resp, err := client.R().
 		SetQueryParams(queryParams).
 		SetHeader("user-agent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36").
 		SetHeader("cookie", "__cfduid=dfdd28cc2534b56b8e878dd540944bf221555100794; blacklist_avatars=true; blacklist_users=false; css=hexagon%3Boverrides%2Fchristmas%3B1462320000; mode=view; e621=BAh7CDoPc2Vzc2lvbl9pZCIlMzZhMzcwMjc4YmMxMmEzZDM0YmRlNTA4ZmU2ZGI2MzA6EF9jc3JmX3Rva2VuSSIxR0pkMXBqMWxJMVZlcWFHQmk1bkNHNlcwY2JzcGtkQ0tUc0xVaTltZGhHaz0GOgZFRkkiCmZsYXNoBjsHRklDOidBY3Rpb25Db250cm9sbGVyOjpGbGFzaDo6Rmxhc2hIYXNoewAGOgpAdXNlZHsA--62ec4afec78a2df7a9934f6dc6ea8c20c8731da4; cf_clearance=42717a4c94b201952cb6f6b4bb38a874a6808c26-1555114721-2592000-250").
