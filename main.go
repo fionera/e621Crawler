@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
-	"github.com/cenkalti/backoff"
-	"github.com/fionera/e621Crawler/api"
-	"github.com/sirupsen/logrus"
 	"os"
 	"os/signal"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cenkalti/backoff"
+	"github.com/fionera/e621Crawler/api"
+	"github.com/sirupsen/logrus"
 )
 
 var startTime = time.Now()
@@ -51,7 +52,7 @@ func main() {
 			break
 		}
 
-		var posts api.Posts
+		var posts *api.Posts
 		err := backoff.Retry(func() error {
 			logrus.Infof("Requesting next page before id: %d", currentPost)
 			posts, err = api.List(320, currentPost, 0, "", false)
@@ -67,7 +68,7 @@ func main() {
 			logrus.Error(err)
 		}
 
-		for _, post := range posts {
+		for _, post := range posts.Posts {
 			if atomic.LoadInt32(&exitRequested) == 1 {
 				break
 			}
