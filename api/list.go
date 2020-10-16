@@ -1,10 +1,9 @@
 package api
 
 import (
-	"encoding/json"
 	"io/ioutil"
 	"strconv"
-	
+
 	"github.com/sirupsen/logrus"
 	"github.com/go-resty/resty"
 )
@@ -15,7 +14,7 @@ const (
 )
 
 type Posts struct {
-	Posts []Post `json:"posts"`
+	Posts []Post
 }
 type File struct {
 	Width  int    `json:"width"`
@@ -89,7 +88,8 @@ type Post struct {
 	IsFavorited   bool          `json:"is_favorited"`
 	HasNotes      bool          `json:"has_notes"`
 }
-func List(limit int, beforeId int, page int, tags string, typedTags bool) (Posts, error) {
+
+func List(limit int, beforeId int, page int, tags string, typedTags bool) (*Posts, error) {
 	queryParams := map[string]string{}
 	if limit != 0 {
 		if limit > maxLimit {
@@ -114,7 +114,7 @@ func List(limit int, beforeId int, page int, tags string, typedTags bool) (Posts
 		"user-agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/73.0.3683.86 Safari/537.36",
 		"Accept":     "application/json",
 	})
-	resp, err := client.R().SetQueryParams(queryParams).Get(listUrl)
+	resp, err := client.R().SetQueryParams(queryParams).SetResult(Posts{}).Get(listUrl)
 
 	if err != nil {
 		logrus.Fatal(err)
@@ -122,11 +122,7 @@ func List(limit int, beforeId int, page int, tags string, typedTags bool) (Posts
 
 	_ = ioutil.WriteFile("api/before_id_"+strconv.Itoa(beforeId)+".json", resp.Body(), 0755)
 
-	var posts Posts
-	err = json.Unmarshal(resp.Body(), &posts)
-	if err != nil {
-		logrus.Fatal(err)
-	}
+	posts := resp.Result().(*Posts)
 
 	return posts, nil
 }
