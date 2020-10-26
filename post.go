@@ -8,20 +8,20 @@ import (
 func ProcessPost(post api.Post) {
 	logrus.Debugf("Processing Post | %d", post.ID)
 
-	if post.FileURL != "" {
-		logrus.Debugf("Found File | Post: %d - %s", post.ID, post.FileURL)
-		startDownload(post.ID, post.FileURL, "file")
+	if post.File.URL != "" {
+		logrus.Debugf("Found File | Post: %d - %s", post.ID, post.File.URL)
+		startDownload(post.ID, post.File.URL, "file")
 	}
 
-	if post.PreviewURL != "" {
-		logrus.Debugf("Found Preview | Post: %d - %s", post.ID, post.PreviewURL)
-		startDownload(post.ID, post.PreviewURL, "preview")
+	if post.Preview.URL != "" {
+		logrus.Debugf("Found Preview | Post: %d - %s", post.ID, post.Preview.URL)
+		startDownload(post.ID, post.Preview.URL, "preview")
 
 	}
 
-	if post.SampleURL != "" {
-		logrus.Debugf("Found Sample | Post: %d - %s", post.ID, post.SampleURL)
-		startDownload(post.ID, post.SampleURL, "sample")
+	if post.Sample.URL != "" {
+		logrus.Debugf("Found Sample | Post: %d - %s", post.ID, post.Sample.URL)
+		startDownload(post.ID, post.Sample.URL, "sample")
 
 	}
 }
